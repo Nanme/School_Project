@@ -21,4 +21,5 @@ Space = 26 = 11010
   ?   = 31 = 11111
 
 TODO : To comment in english.
+
 TODO : Qt GUI.
