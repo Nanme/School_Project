@@ -3,7 +3,7 @@ My School Project during my study in Computer Science
 
 MI44-TP1 : A Fiestel Cipher software in C++.
 
-MI44-TP2 : A RSA Cryptosystem in C++.
+MI44-TP2 : A RSA Cryptosystem in C++ with MI44-TP2 included.
 
 We use this table to convert character in binary number :
   A   = 0  = 00000
@@ -21,4 +21,4 @@ Space = 26 = 11010
   ?   = 31 = 11111
 
 TODO : To comment in english.
-TODO : 
+TODO : Qt GUI.
