@@ -1,0 +1,124 @@
+\documentclass[10pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[french]{babel}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage[french,boxed]{algorithm2e}
+\usepackage[top=2cm, bottom=2cm, left=2cm, right=2cm]{geometry}
+\author{ALLIOT Renaud}
+\title{MI44\\Securité Informatique\\Travaux Pratique 1: Cryptage par Bloc}
+\begin{document}
+\maketitle
+\newpage
+\section{Introduction}
+Le but de ce travaux pratique seras de mettre en place un cryptage RSA. Pour cela on devra programmer un générateur de clé puis programmer le cryptage/décryptage puis la simulation d'un protocole.\\
+Ayant choisis de coder en C++ ce projet, j'ai créer une classe "Msg" qui correspond au bloc sur lesquels nous travaillerons. Les précisions sur cette dernières seront présentant dans l'annexe \ref{msg}.
+\section{Génération des clés}
+Pour générer les clé nous avons besoin de plusieurs élément :
+\begin{itemize}
+\item Générer deux nombres aléatoire premier.
+\item Le choix de l'exposant de cryptage.
+\item Le calcul de d'un inverse modulaire
+\end{itemize}
+
+\subsection*{Nombre aléatoire premier}
+Pour générer un nombre aléatoire premier on uttilise la fonction \verb| rand() | pour générer un nombre aléatoirement, puis l'on effectue un test de primalité et tant qu'il n'est pas vérifié on génère a nouveau le nombre.
+
+Pour ce qui est du test, tout d'abord on exclu les cas ou le nombre est inférieur à 2, ensuite on l'arrête s'il est égal à deux. Ensuite on test si il est pair, puis on effectue une boucle de 3 à $\sqrt{p}$ avec un pas de deux pour esquiver les nombres pairs précédement testé et on test s'il est divisible avec l'un de ces nombres.
+
+La fonction crée est \verb| bool test_primalite(int p) |.
+\subsection*{Choix de l'exposant}
+Le cryptage RSA demande que si $e$ est l'exposant alors $pgcd(e, \phi(n)) = 1$ et $0<e<\phi(n)$ donc on effectue une boucle qui génère $e$ aléatoirement tant que $pgcd(e, \phi(n)) \neq 1$.$pgcd(e, \phi(n)) = 1$
+\subsection*{Calcul de l'inverse modulaire}
+L'exposant $d$ est l'inverse de $e$ modulo $\phi(n)$. Pour cela on uttilise l'algorithmes d'euclide étendu qui calcul $d^{-1}\equiv e\ [\phi(n)]$.
+
+On utilise donc la fonction suivante \verb| int algo_euclide_gen(int inverse, int modulo) | qui renvoie l'inverse modulaire.
+\subsection*{Implémentation}
+On effectue les étape dans cette ordre :
+\begin{enumerate}
+\item On génère $p$ et $q$ deux nombre premier aléatoirement.
+\item On calcul $n=p\times q$ et $\phi(n)=(p-1)(q-1)$.
+\item On calcul $e$.
+\item On calcul $d$ l'inverse modulaire de $e$ modulo $\phi(n)$.
+\item On renvoie le couple [(n,e),(n,d)].\\
+\end{enumerate}
+La fonction de génération de clé est \verb| couple gen_cle() |
+\section{Cryptage/Décryptage}
+Pour cela on code un algorithmes d'exponentiation modulaire afin de calculer $C \equiv M^e\ [n]$ ou $M \equiv C^d\ [n]$ avec M le message non crypté, C le message crypté, e l'exposant de chiffrement, d l'exposant de déchiffrement et n le module.
+
+L'algorithmes pour $C \equiv M^e\ [n]$ uttilise le procédés suivant :
+\begin{itemize}
+\item On écrit $e$ sous la forme $b_nb_{n-1}\cdots b_1b_0$ où $b_i\in{0,1}$.
+\item A chaque itération allant de 1 à n, si $b_i=1$ alors on calul $C = C\times M\ [n]$.
+\item Dans tout les cas on calcul $M^2 [n]$.\\
+\end{itemize}
+    \begin{algorithm}
+    	\caption{Calcul de $C \equiv M^e\ [n]$}
+        \Donnees{$M\in\mathbb{N},\ e\in\mathbb{N},\ n\in\mathbb{N}$}
+        \Res{$C\in\mathbb{N}$}
+        \Deb{
+            Calculer $e=(e_k,e_{k-1},...,e_1,e_0)_2$ où $e_i\in{0,1}$\;
+            $1\leftarrow C$\;
+            $M\leftarrow base$\;
+            \Pour{$i\leftarrow0$ à $k$}{
+                \Si{$e_i=1$}{
+                $C\times base\ [n]\leftarrow C$\;
+                }
+                $base\times base\ [n]\leftarrow base$\;
+            }
+        }
+    \end{algorithm}
+La fonction qui en resulte est : \verb| double expo_modul(int message, int eOuD, int n) |.
+
+Pour crypté j'ai donc décider d'uttiliser le tableau de conversion du TP2. Ainsi je convertit chaque caractère en son entier corespondant, que je passe dans l'algorithmes avec la clé pulique pour crypté. Il en ressort un chiffre in traductible (Car en général très grand). Pour le decryptage récupère le nombre, le passe dans la fonction de décryptage et il en ressort le code ascii du caractère décrypté. On obtiens alors les fonction suivante : \verb| double encrypt_rsa(double message, int e, int n)| et \verb| double decrypt_rsa(double message, int d, int n)|.
+\section{Conclusion}
+L'un des problème est le languages choisis : contrairement à des languages comme le python, le type "int" est bridé à $2{64}-1$. Or il est assez facile de générer des nombre premier à 5 chiffres, ainsi lorsque l'on crypte un message d'a peine un chiffre, l'on se prend aisément à atteindre les $10^8$. J'ai donc eut plusieurs problème lors de l'exponentiation modulaire, car une de mes variable dépassait la limite du type int et donc renvoyait de force zéros. J'ai donc décider de travailler avec des double (il ateigne $10^{308}$ mais lors du décryptage il m'arrive le même problème, l'exponentiation modulaire s'effectuant sur un nombre dépassant le milliard. J'ai donc été contraint de brider la génération de p et q aux nombres premier inférieurs à 100. Mais je pense que ces petits nombre rende le cryptage plus sensible aux attaques.
+Enfin il serait judicieux de faire un GUI.
+\newpage
+\appendix
+\section{Classe "Msg" : Attribut et méthodes \label{msg}}
+La classe Msg correspond à un bloc de deux caractère en binaire. Elle est uttilisé lors de Feistel.
+\subsection*{Attribut}
+\verb| vector<int> firstChar| qui est le bloc des bits de poids faible (caractère de droite).\\
+\verb| vector<int> secondChar>| qui est le bloc des bits de poids fort (caractère de gauche).
+\subsection*{Méthode}
+\verb| msg() | Constructeur par défaut qui met chaque caractère égal à 'A'.\\
+\verb| msg(const vector<int>& a, const vector<int>& b)| Constructeur surchargé qui affecte 'a' à 'firstChar' et 'b' à 'secondChar'.\\
+\verb| msg(char a, char b) | Constructeur surchargé qui met a dans firstChar et b dans secondChar en les convertissant.\\
+\verb| msg(const msg& copy) | Constructeur par copie.
+\newline
+\newline
+\verb| msg& operator=(const msg& c) | Surcharge de l'opérateur d'affectation.\\
+\verb| bool isEqual(const msg& b) const | Methode itermédiaire pour le test d'égalité et d'inégalité.\\
+\verb| msg& operator^=(const msg& b) | Surcharge de l'opérateur XOR raccourcis
+\newline
+\newline
+\verb| vector<int> getFirstChar() const | Accesseur de firstChar\\
+\verb| void setFirstChar(vector<int> value) | Modificateur de firstChar avec un vector<int>.\\
+\verb| void setFirstChar(char c) | Modificateur de firstChar en convertissant un caractère c en binaire.\\
+\verb| void setFirstChar(int pos, int value) | Modificateur du bit "pos" de firstChar par "value".\\
+\verb| vector<int> getSecondChar() const | Accesseur de secondChar.
+\verb| void setSecondChar(vector<int> value) | Modificateur de secondChar avec un vector<int>.\\
+\verb| void setSecondChar(char c) | Modificateur de secondChar avec un caractère c convertis en binaire.\\
+\verb| void setSecondChar(int pos, int value) | Modificateur du bit "pos" de firstChar par "value".
+\newline
+\newline
+\verb| msg shiftLeftMsg(int shiftValue) const | Renvoie *this décaler de "shiftValue" vers la gauche\\
+\verb| msg shiftRightMsg(int shiftValue) const | Renvoie *this décaler de "shiftValue" vers la droite.\\
+\verb| msg function(const msg& key) const | Renvoie function(*this, key).
+\newline
+\newline
+\verb| void encrypt_binaire(char a, char b) | Convertit les caractère 'a' et 'b' en mot binaire qu'il met à la place de secondChar et firstChar (dans cette ordre).\\
+\verb| void decrypt_binaire(char& a, char& b) const | Convertit firstChar et secondChar en caractère dans 'a' et 'b'.
+\newline
+\newline
+\verb| void displayMsg(ostream& stream) | Ecris firstChar et secondChar dans stream.
+
+\subsubsection*{Fonction externe}
+\verb| bool operator==(const msg& a, const msg& b) | Surcharge du test d'égalité pour les msg.\\
+\verb| bool operator!=(const msg& a, const msg& b) | Surcharge du test d'inégalité pour les msg.\\
+\verb| msg operator^(const msg& a, const msg& b) | Surcharge de l'opérator XOR pour les msg.\\
+\verb| ostream& operator<<(ostream& stream, msg& a) | Surcharge de l'opérateur flux de sortis pour msg.
+\end{document}

@@ -1,0 +1,118 @@
+\documentclass[10pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[french]{babel}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage[top=2cm, bottom=2cm, left=2cm, right=2cm]{geometry}
+\author{ALLIOT Renaud}
+\title{MI44\\Securité Informatique\\Travaux Pratique 1: Cryptage par Bloc}
+\begin{document}
+\maketitle
+\newpage
+\section{Introduction}
+Le but de ce travaux pratique seras de mettre en place un cryptage par réseau de Feistel de quatres tours. Pour ce faire nours procéderont en quatres étapes : tout d'abord il faudras créer des fonctions permettant de convertir les caractères de l'alphabet désiré en mot binaires de cinq bits, puis il faudras programmer la fonction de chiffrement par produit uttilisant la clé fournit par l'uttilisateur. Ensuite il faudras implémenter tout ceci dans le réseau Feistel et enfin programmer la fonction de décryptage.\\
+Ayant choisis de coder en C++ ce projet, j'ai créer une classe "Msg" qui correspond au bloc sur lesquels nous travaillerons. Les précisions sur cette dernières seront présentant dans l'annexe \ref{msg}.
+\section{Conversion des caractère en binaire}
+Pour pouvoir travailler avec des bloc informatique on transpose tout d'abord chaques caractère de la manière suivante : A = "0" à Z = "25" et les  caractère suivant : " " = 26, "." = 27, "," = 28, "'" = 29, "!" = 30 et "?" = 31. Ceci nous permet de convertir ces caractères en mot binaire de cinq bits correspondant aux nombres décimale lui correspondant ecrit en binaire.
+
+
+Pour ce faire j'ai décidé de créer une méthode pour la classe msg : \verb| void encrypt_binaire() |. Comme les lettres se suivent à la manière du tableau ASCII on récupère la valeur du caractère dans le tableau ASCII à laquel on retire 65 (A vaut 65 dans le tableau ASCII) puis l'on uttilise une boucle interative pour le combiner en binaire. Dans les cas des caractère spéciaux on test chaque code ASCII et on lui associe le mot binaire voulu.
+
+La fonction inverse \verb| void decrypt_binaire() | uttilise le même principe : On stocke les mots binaires des caractère spéciaux dans plusieurs variables, on effectue les tests pour chacun, si aucun ne reussis c'est que le mot est une lettre et dans ce cas la on calcule sa forme décimal plus 65 pour avoir sont code ASCII.
+\section{Fonction de chiffrement par produit}
+Cette fonction nécéssite deux opérations : le décalage binaire sur la gauche et l'addition en base deux qui correspond au ou exclusif.
+\subsection*{Décalage binaire gauche}
+Pour cela j'ai créer une methode pour la classe msg : \verb| msg shiftLeftMsg(int shiftValue) const |. Qui renvoie le bloc décalé de shiftValue vers la gauche. On uttilise la case du bits de poids faible comme support pour échanger chaque bits avec celui à sa gauche.
+\subsection*{Addition en base deux}
+Pour cela on somme chaque entre bits et si l'on obtient un entier supérieur à 2, on le force à 0. On l'effectue pour chaque bloc.\\
+Pour faciliter l'écriture du programme, j'ai décider de surcharger l'opérateur ou-exclusif (\^\ et \^\ = en C++).
+\subsection*{Implémentation}
+J'ai donc décider d'implémenter tout cela dans une méthode : \verb| msg function(const msg& key) const |. Elle renvoie le bloc crypté à l'aide de la clé "key" par la fonction de chiffrement par produit i.e. un décalage binaire du bloc suivis d'un ou-exclusif avec la clé.
+\section{Reseau de Feistel}
+Le reseau de Feistel crypte chaque bloc du message en quatres tours, il faudras donc coder un tour qu'on réitère quatres fois pour crypté chaques bloc. Mais aussi le découpage du message en bloc et de la clé en bloc.
+\subsection*{Un tour}
+Pour un tour on effectue les opérations suivantes dans cette ordre :
+\begin{enumerate}
+\item $G_{i+1} = D_i$
+\item $D_{i+1} = G_{i} \oplus function(D_i, K_{i+1})$\\
+\end{enumerate}
+$D_i et G_i$ désigne respectivement les bloc droite et gauche du tour i, $K_i$ désigne le bloc de la clé du tour i et function la fonction de chiffrement par produit.\\
+On uttilise donc la fonction suivante : \verb| void round(msg& leftBlock, msg& rightBlock, const msg& key) |. Seul la clé est conservé, leftBlock et rightBlock (respectivement $D_i$ et $G_i$) sont modifiés par leur version crypté (respectivement $D_{i+1}$ et $G_{i+1}$).\\
+\subsection*{Découpe du message et de la clé}
+Pour la cas de la clé l'algorithmes est simple. Si l'on prend la clé suivante : "$C_1C_2C_3C_4$", on effectue trois itération pour récupéré $C_1C_2$ à $C_3C_4$ et pour le dernier cas on effectue l'opération à la main pour récupérer $C_4C_1$. La fonction uttiliser est \verb| vector<msg> cutMsg(const string& key) | et renvoie donc la tableau de chaque sous-clé sans altérer la chaine de caractère de la clé\\
+Pour le message s'il possède un nombre de caractère qui est un multiple de quatres on a aucun problème, cependant si ce n'est pas le cas, on doit compléter le message d'autant de caractère qu'il faut pour que sa taille devienne un multiple de quatres. J'ai donc décider d'ajouter des espaces, ces dernier n'apparaissant pas lors du décryptage il n'altère pas la lecture du message. On test donc la taille du message modulo 4 pour savoir combien de caractère à ajouter à chaque fois. On uttilise la fonction suivante : \verb| vector<msg> cutStr(const string& str) | qui renvoie le tableau de bloc sans altérer le message non crypté.
+\subsection*{Implémentation}
+On implémente donc tout cela de la manière suivante :
+\begin{itemize}
+\item On découpe la clé et le message en sous bloc avec \verb| cutKey | et \verb| cutStr |.
+\item On effectue autant d'itération que nécessaire pour parcourir le message.  On enregistre les bloc courant dans \verb| stackRight | et \verb| stackLeft | (respectivement block droit et gauche). On applique quatres fois \verb| round | à \verb| stackRight | et \verb| stackLeft | avec la bonne sous-clé.
+\item On convertit les bloc en caractère et on ajoute en fin de la chaine de caractère de retour.
+\end{itemize}
+On uttilise donc la fonction suivante : \verb|string feistel(const string& message, const string& key) | qui n'altère ni le message, ni la clé et renvoie le message chiffré.
+\subsection*{Exemple :}
+\begin{itemize}
+\item "AAAA??BB" $\leftrightarrow$ "".
+\item "??BBAAAA" $\leftrightarrow$ "".
+\item "BBAABBAA" $\leftrightarrow$ "".
+\item "AABBAABB" $\leftrightarrow$ "".
+\item "CRYPTOGRAPHIE" $\leftrightarrow$ "".
+\item "FEISTEL" $\leftrightarrow$ "".
+\end{itemize}
+
+\section{Décryptage du réseau}
+Le décryptage est assez simple, on effectue l'opération inverse lors des cycles de décryptage :
+\begin{enumerate}
+\item $D_i = G_{i+1}$
+\item $G_i = D_{i+1} \oplus function(D_i, K_{i+1})$\\
+\end{enumerate}
+On a donc simplement pour nouvelle fonction : \verb| void decrypt_roud(msg& leftBlock, msg& rightBlock, const msg& key) | et \verb| string decrypt_feistel(const string& message, const string& key) | qui fonctionne de prenne en paramètre et renvoie les même variable que celle de cryptage.
+\section{Conclusion}
+Le programme fonctionne correctement, cependant il faudrait voir pour prendre en charge les minuscule et/ou le tableau ACII (hormis les caractère de 0 à 31 et 127 qui sont des caractère purement informatique et donc illisible). On peut aussi implémenter d'autre mode de cryptage, comme le CBC, permettre à l'uttilisateur de modifier le nombre de tour, d'entrer une clé de tailler quelconque.
+\newpage
+\appendix
+\section{Classe "Msg" : Attribut et méthodes \label{msg}}
+La classe Msg correspond à un bloc de deux caractère en binaire. Elle est uttilisé lors de Feistel.
+\subsection*{Attribut}
+\verb| vector<int> firstChar| qui est le bloc des bits de poids faible (caractère de droite).\\
+\verb| vector<int> secondChar>| qui est le bloc des bits de poids fort (caractère de gauche).
+\subsection*{Méthode}
+\verb| msg() | Constructeur par défaut qui met chaque caractère égal à 'A'.\\
+\verb| msg(const vector<int>& a, const vector<int>& b)| Constructeur surchargé qui affecte 'a' à 'firstChar' et 'b' à 'secondChar'.\\
+\verb| msg(char a, char b) | Constructeur surchargé qui met a dans firstChar et b dans secondChar en les convertissant.\\
+\verb| msg(const msg& copy) | Constructeur par copie.
+\newline
+\newline
+\verb| msg& operator=(const msg& c) | Surcharge de l'opérateur d'affectation.\\
+\verb| bool isEqual(const msg& b) const | Methode itermédiaire pour le test d'égalité et d'inégalité.\\
+\verb| msg& operator^=(const msg& b) | Surcharge de l'opérateur XOR raccourcis
+\newline
+\newline
+\verb| vector<int> getFirstChar() const | Accesseur de firstChar\\
+\verb| void setFirstChar(vector<int> value) | Modificateur de firstChar avec un vector<int>.\\
+\verb| void setFirstChar(char c) | Modificateur de firstChar en convertissant un caractère c en binaire.\\
+\verb| void setFirstChar(int pos, int value) | Modificateur du bit "pos" de firstChar par "value".\\
+\verb| vector<int> getSecondChar() const | Accesseur de secondChar.
+\verb| void setSecondChar(vector<int> value) | Modificateur de secondChar avec un vector<int>.\\
+\verb| void setSecondChar(char c) | Modificateur de secondChar avec un caractère c convertis en binaire.\\
+\verb| void setSecondChar(int pos, int value) | Modificateur du bit "pos" de firstChar par "value".
+\newline
+\newline
+\verb| msg shiftLeftMsg(int shiftValue) const | Renvoie *this décaler de "shiftValue" vers la gauche\\
+\verb| msg shiftRightMsg(int shiftValue) const | Renvoie *this décaler de "shiftValue" vers la droite.\\
+\verb| msg function(const msg& key) const | Renvoie function(*this, key).
+\newline
+\newline
+\verb| void encrypt_binaire(char a, char b) | Convertit les caractère 'a' et 'b' en mot binaire qu'il met à la place de secondChar et firstChar (dans cette ordre).\\
+\verb| void decrypt_binaire(char& a, char& b) const | Convertit firstChar et secondChar en caractère dans 'a' et 'b'.
+\newline
+\newline
+\verb| void displayMsg(ostream& stream) | Ecris firstChar et secondChar dans stream.
+
+\subsubsection*{Fonction externe}
+\verb| bool operator==(const msg& a, const msg& b) | Surcharge du test d'égalité pour les msg.\\
+\verb| bool operator!=(const msg& a, const msg& b) | Surcharge du test d'inégalité pour les msg.\\
+\verb| msg operator^(const msg& a, const msg& b) | Surcharge de l'opérator XOR pour les msg.\\
+\verb| ostream& operator<<(ostream& stream, msg& a) | Surcharge de l'opérateur flux de sortis pour msg.
+\end{document}
